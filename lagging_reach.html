@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>후행스팬 도달 예측</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; background: #0a0e1a; color: #e2e8f0; padding: 16px; min-height: 100vh; max-width: 480px; margin: 0 auto; }
+
+.header { text-align: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #1e2d4a; }
+.header h1 { font-size: 16px; font-weight: 700; color: #fff; }
+.header p { font-size: 11px; color: #4a6fa5; margin-top: 2px; }
+
+/* 결과박스 */
+.result-box { border-radius: 14px; padding: 20px 16px; margin-bottom: 14px; text-align: center; background: #0f1829; border: 1px solid #1e2d4a; transition: all 0.3s; }
+.res-emoji { font-size: 40px; margin-bottom: 8px; }
+.res-main { font-size: 26px; font-weight: 800; margin-bottom: 4px; }
+.res-sub { font-size: 12px; opacity: 0.7; }
+.result-box.bullish { border: 2px solid #10b981; background: #052e16; }
+.result-box.bearish { border: 2px solid #ef4444; background: #2d0a0a; }
+.result-box.neutral { border: 1px solid #f59e0b; background: #1a1500; }
+
+/* 미니 카드 3개 */
+.cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.card { background: #0f1829; border-radius: 10px; padding: 12px 6px; text-align: center; border: 1px solid #1e2d4a; }
+.cv { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+.cl { font-size: 10px; color: #4a6fa5; }
+.green  { color: #10b981; }
+.red    { color: #ef4444; }
+.yellow { color: #f59e0b; }
+.white  { color: #fff; }
+
+/* 패널 */
+.panel { background: #0f1829; border-radius: 14px; padding: 16px; margin-bottom: 12px; border: 1px solid #1e2d4a; }
+.panel-title { font-size: 10px; font-weight: 700; color: #4a6fa5; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 14px; }
+
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.row2:last-child { margin-bottom: 0; }
+.ig { display: flex; flex-direction: column; gap: 6px; }
+.ig label { font-size: 11px; color: #94a3b8; }
+.ig input { background: #0a0e1a; border: 1px solid #1e2d4a; border-radius: 10px; padding: 11px 10px; color: #e2e8f0; font-size: 15px; outline: none; width: 100%; transition: border-color 0.2s; }
+.ig input:focus { border-color: #3b82f6; }
+
+/* 봉 테이블 */
+.candle-table { width: 100%; border-collapse: collapse; }
+.candle-table th { font-size: 10px; color: #4a6fa5; font-weight: 700; padding: 6px 4px; text-align: center; border-bottom: 1px solid #1e2d4a; }
+.candle-table td { padding: 5px 3px; }
+.candle-table td input { background: #0a0e1a; border: 1px solid #1e2d4a; border-radius: 8px; padding: 9px 6px; color: #e2e8f0; font-size: 14px; outline: none; width: 100%; text-align: right; transition: border-color 0.2s; }
+.candle-table td input:focus { border-color: #3b82f6; }
+.candle-table td.lbl { font-size: 11px; color: #64748b; text-align: center; width: 32px; }
+.candle-table tr:last-child td input { border-color: #3b82f6; color: #60a5fa; }
+.candle-table tr:last-child td.lbl { color: #60a5fa; font-weight: 700; }
+
+/* 기울기 미리보기 */
+.slope-preview { background: #0a0e1a; border-radius: 10px; padding: 10px 14px; margin-top: 10px; border: 1px solid #1e2d4a; display: none; }
+.slope-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+.slope-row:last-child { margin-bottom: 0; }
+.sl { color: #64748b; }
+.sv { font-weight: 600; }
+
+/* 버튼 */
+.btn-calc { width: 100%; padding: 15px; background: #1d4ed8; border: none; border-radius: 12px; color: #fff; font-size: 17px; font-weight: 700; cursor: pointer; margin-bottom: 8px; }
+.btn-calc:active { opacity: 0.8; }
+.btn-sample { width: 100%; padding: 10px; background: none; border: 1px solid #1e2d4a; border-radius: 12px; color: #4a6fa5; font-size: 13px; cursor: pointer; margin-bottom: 8px; }
+.btn-reset { width: 100%; padding: 10px; background: none; border: 1px solid #1e2d4a; border-radius: 12px; color: #4a6fa5; font-size: 13px; cursor: pointer; margin-bottom: 14px; }
+
+/* 상세 */
+.detail { background: #0f1829; border-radius: 12px; padding: 14px; border: 1px solid #1e2d4a; margin-bottom: 12px; display: none; }
+.det-title { font-size: 10px; font-weight: 700; color: #4a6fa5; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+.drow { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: .5px solid #1e2d4a; gap: 8px; }
+.drow:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.dl { color: #94a3b8; flex-shrink: 0; }
+.dv { font-weight: 600; text-align: right; }
+
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1e3a5f; border: 1px solid #3b82f6; border-radius: 10px; padding: 10px 18px; font-size: 13px; font-weight: 600; color: #60a5fa; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; white-space: nowrap; }
+.toast.show { opacity: 1; }
+.toast.warn { background: #431407; border-color: #f59e0b; color: #f59e0b; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>후행스팬 도달 예측</h1>
+  <p>추세 + 거래량 → 과거 캔들 도달 봉 수 예측</p>
+</div>
+
+<!-- 결과 -->
+<div class="result-box neutral" id="result-box">
+  <div class="res-emoji" id="res-emoji">⏳</div>
+  <div class="res-main" id="res-main">데이터 입력 후 계산</div>
+  <div class="res-sub" id="res-sub">최근 5봉 + 목표 캔들 입력</div>
+</div>
+
+<!-- 미니 카드 -->
+<div class="cards" id="cards" style="display:none">
+  <div class="card"><div class="cv" id="cv1">-</div><div class="cl">봉당 이동량</div></div>
+  <div class="card"><div class="cv" id="cv2">-</div><div class="cl">남은 거리</div></div>
+  <div class="card"><div class="cv" id="cv3">-</div><div class="cl">거래량 추세</div></div>
+</div>
+
+<!-- 목표 캔들 (26봉 앞) -->
+<div class="panel">
+  <div class="panel-title">🎯 목표 캔들 (후행스팬이 닿아야 할 26봉 앞)</div>
+  <div class="row2">
+    <div class="ig">
+      <label>현재가 (후행스팬)</label>
+      <input type="number" id="i-price" placeholder="2610000" inputmode="numeric">
+    </div>
+    <div class="ig">
+      <label>목표 캔들 고가 ⬆</label>
+      <input type="number" id="i-high" placeholder="2635000" inputmode="numeric">
+    </div>
+  </div>
+  <div class="row2">
+    <div class="ig">
+      <label>목표 캔들 저가 ⬇</label>
+      <input type="number" id="i-low" placeholder="2618000" inputmode="numeric">
+    </div>
+    <div class="ig" style="justify-content:flex-end">
+      <label style="visibility:hidden">-</label>
+      <div id="pos-badge" style="background:#1a1500;border:1px solid #f59e0b;border-radius:10px;padding:11px 8px;text-align:center;font-size:12px;font-weight:700;color:#f59e0b">위치 확인 중</div>
+    </div>
+  </div>
+</div>
+
+<!-- 최근 5봉 데이터 -->
+<div class="panel">
+  <div class="panel-title">📊 최근 5봉 일봉 데이터 (오래된 순 → 현재봉)</div>
+  <table class="candle-table">
+    <thead>
+      <tr>
+        <th>봉</th>
+        <th>종가 (원)</th>
+        <th>거래대금 (K)</th>
+      </tr>
+    </thead>
+    <tbody id="candle-body">
+    </tbody>
+  </table>
+  <div class="slope-preview" id="slope-preview">
+    <div class="slope-row"><span class="sl">가중 봉당 이동량</span><span class="sv" id="sp-slope">-</span></div>
+    <div class="slope-row"><span class="sl">거래량 추세</span><span class="sv" id="sp-vol">-</span></div>
+    <div class="slope-row"><span class="sl">방향</span><span class="sv" id="sp-dir">-</span></div>
+  </div>
+</div>
+
+<button class="btn-sample" onclick="loadSample()">📋 샘플 데이터 불러오기</button>
+<button class="btn-calc" onclick="calc()">📐 도달 봉 수 계산</button>
+<button class="btn-reset" onclick="reset()">초기화</button>
+
+<!-- 상세 -->
+<div class="detail" id="detail">
+  <div class="det-title">계산 상세</div>
+  <div class="drow"><span class="dl">현재 후행스팬 위치</span><span class="dv" id="d1">-</span></div>
+  <div class="drow"><span class="dl">가중 봉당 이동량</span><span class="dv" id="d2">-</span></div>
+  <div class="drow"><span class="dl">목표까지 거리</span><span class="dv" id="d3">-</span></div>
+  <div class="drow"><span class="dl">거래량 가속/감속</span><span class="dv" id="d4">-</span></div>
+  <div class="drow"><span class="dl">예상 도달</span><span class="dv white" id="d5">-</span></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// 테이블 행 생성
+function buildTable() {
+  const tbody = document.getElementById('candle-body');
+  tbody.innerHTML = '';
+  for (let i = 1; i <= 5; i++) {
+    const isLast = i === 5;
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td class="lbl">${isLast ? '현재' : '-' + (5-i)}</td>
+      <td><input type="number" id="c-close-${i}" inputmode="numeric" placeholder="${(2580000 + i*6000).toLocaleString()}" oninput="previewSlope()"></td>
+      <td><input type="number" id="c-vol-${i}" inputmode="numeric" placeholder="${60000 + i*7000}" oninput="previewSlope()"></td>`;
+    tbody.appendChild(row);
+  }
+}
+
+function getCandles() {
+  const arr = [];
+  for (let i = 1; i <= 5; i++) {
+    const c = parseFloat(document.getElementById('c-close-'+i).value);
+    const v = parseFloat(document.getElementById('c-vol-'+i).value);
+    if (c && v) arr.push({ close: c, vol: v });
+  }
+  return arr;
+}
+
+// 가중 기울기 계산
+function weightedSlope(candles) {
+  if (candles.length < 2) return 0;
+  let wSum = 0, wTotal = 0;
+  for (let i = 1; i < candles.length; i++) {
+    const change = candles[i].close - candles[i-1].close;
+    const w = candles[i].vol;
+    wSum   += change * w;
+    wTotal += w;
+  }
+  return wTotal > 0 ? wSum / wTotal : 0;
+}
+
+// 거래량 추세 (앞 2봉 vs 뒤 2봉)
+function volTrend(candles) {
+  if (candles.length < 4) return 0;
+  const early = (candles[0].vol + candles[1].vol) / 2;
+  const late  = (candles[candles.length-2].vol + candles[candles.length-1].vol) / 2;
+  return (late - early) / early;
+}
+
+function previewSlope() {
+  const candles = getCandles();
+  const price   = parseFloat(document.getElementById('i-price').value);
+  const high    = parseFloat(document.getElementById('i-high').value);
+  const low     = parseFloat(document.getElementById('i-low').value);
+
+  // 위치 뱃지
+  const badge = document.getElementById('pos-badge');
+  if (price && high && low) {
+    if (price > high)      { badge.style.background='#052e16'; badge.style.borderColor='#10b981'; badge.style.color='#10b981'; badge.textContent='✅ 캔들 위'; }
+    else if (price >= low) { badge.style.background='#2d0a0a'; badge.style.borderColor='#ef4444'; badge.style.color='#ef4444'; badge.textContent='⛔ 캔들 안'; }
+    else                   { badge.style.background='#1a1500'; badge.style.borderColor='#f59e0b'; badge.style.color='#f59e0b'; badge.textContent='⚠️ 캔들 아래'; }
+  }
+
+  if (candles.length < 3) { document.getElementById('slope-preview').style.display='none'; return; }
+
+  const slope = weightedSlope(candles);
+  const vt    = volTrend(candles);
+
+  document.getElementById('slope-preview').style.display = 'block';
+  document.getElementById('sp-slope').innerHTML = `<span class="${slope>0?'green':slope<0?'red':'yellow'}">${slope>0?'+':''}${Math.round(slope).toLocaleString()}원/봉</span>`;
+  document.getElementById('sp-vol').innerHTML   = `<span class="${vt>0.05?'green':vt<-0.05?'red':'yellow'}">${vt>0.05?'증가':'vt<-0.05?'감소':'보통'}</span>`;
+  document.getElementById('sp-dir').innerHTML   = `<span class="${slope>0?'green':slope<0?'red':'yellow'}">${slope>2000?'강한 상승':slope>0?'약한 상승':slope<-2000?'강한 하락':'약한 하락'}</span>`;
+}
+
+function calc() {
+  const price = parseFloat(document.getElementById('i-price').value);
+  const high  = parseFloat(document.getElementById('i-high').value);
+  const low   = parseFloat(document.getElementById('i-low').value);
+  const candles = getCandles();
+
+  if (!price || !high || !low) { showToast('현재가, 목표 고가/저가 필수', 'warn'); return; }
+  if (candles.length < 3)     { showToast('최소 3봉 데이터 필요', 'warn'); return; }
+
+  const slope  = weightedSlope(candles);
+  const vt     = volTrend(candles);
+
+  // 거래량 가속도 반영: 증가 추세면 이동량 최대 20% 보정
+  const volAdj    = Math.max(0.8, Math.min(1.2, 1 + vt * 0.5));
+  const adjSlope  = slope * volAdj;
+
+  // 목표 설정
+  let target, posText, posClass;
+  if (price > high) {
+    posText = '✅ 이미 저항 돌파';
+    posClass = 'bullish';
+    target = null;
+  } else if (price >= low) {
+    posText = '⛔ 캔들 안 (저항 걸림)';
+    posClass = 'bearish';
+    target = adjSlope > 0 ? high : low; // 상승이면 고가, 하락이면 저가
+  } else {
+    posText = '⚠️ 캔들 아래';
+    posClass = 'bearish';
+    target = adjSlope > 0 ? low : null; // 상승이면 저가(지지)까지
+  }
+
+  let reachBars = null;
+  let distVal   = null;
+
+  if (target !== null && adjSlope !== 0) {
+    distVal   = target - price;
+    reachBars = distVal / adjSlope;
+  }
+
+  // 결과 표시
+  const rb = document.getElementById('result-box');
+
+  if (target === null && price > high) {
+    rb.className = 'result-box bullish';
+    document.getElementById('res-emoji').textContent = '🚀';
+    document.getElementById('res-main').textContent  = '이미 저항 돌파';
+    document.getElementById('res-sub').textContent   = '후행스팬이 과거 캔들 위에 위치';
+  } else if (reachBars !== null && reachBars > 0) {
+    const bars = Math.ceil(reachBars);
+    rb.className = 'result-box ' + (adjSlope > 0 ? 'bullish' : 'bearish');
+    document.getElementById('res-emoji').textContent = adjSlope > 0 ? '📈' : '📉';
+    document.getElementById('res-main').textContent  = `약 ${bars}봉 뒤`;
+    document.getElementById('res-sub').textContent   = `현재 추세 유지 시 ${bars}거래일 후 도달 예상`;
+  } else if (reachBars !== null && reachBars <= 0) {
+    rb.className = 'result-box neutral';
+    document.getElementById('res-emoji').textContent = '↩️';
+    document.getElementById('res-main').textContent  = '역방향 추세';
+    document.getElementById('res-sub').textContent   = '목표와 반대 방향으로 이동 중';
+  } else {
+    rb.className = 'result-box neutral';
+    document.getElementById('res-emoji').textContent = '➡️';
+    document.getElementById('res-main').textContent  = '추세 없음';
+    document.getElementById('res-sub').textContent   = '거래량 또는 가격 변화 부족';
+  }
+
+  // 미니 카드
+  document.getElementById('cards').style.display = 'grid';
+  const cv1 = document.getElementById('cv1');
+  cv1.textContent = (adjSlope > 0 ? '+' : '') + Math.round(adjSlope).toLocaleString() + '원';
+  cv1.className = 'cv ' + (adjSlope > 0 ? 'green' : adjSlope < 0 ? 'red' : 'yellow');
+  const cv2 = document.getElementById('cv2');
+  cv2.textContent = distVal !== null ? (distVal > 0 ? '+' : '') + Math.round(distVal).toLocaleString() + '원' : '-';
+  cv2.className = 'cv ' + (distVal > 0 ? 'green' : distVal < 0 ? 'red' : 'yellow');
+  const cv3 = document.getElementById('cv3');
+  cv3.textContent = vt > 0.05 ? '증가↑' : vt < -0.05 ? '감소↓' : '보통→';
+  cv3.className = 'cv ' + (vt > 0.05 ? 'green' : vt < -0.05 ? 'red' : 'yellow');
+
+  // 상세
+  document.getElementById('detail').style.display = 'block';
+  document.getElementById('d1').innerHTML = `<span class="${price>high?'green':price>=low?'yellow':'red'}">${posText}</span>`;
+  document.getElementById('d2').innerHTML = `<span class="${adjSlope>0?'green':adjSlope<0?'red':'yellow'}">${adjSlope>0?'+':''}${Math.round(adjSlope).toLocaleString()}원/봉 (거래량 보정 ${((volAdj-1)*100).toFixed(0)}%)</span>`;
+  document.getElementById('d3').innerHTML = distVal !== null
+    ? `<span class="${distVal>0?'green':'red'}">${distVal>0?'+':''}${Math.round(distVal).toLocaleString()}원</span>`
+    : '<span class="yellow">-</span>';
+  document.getElementById('d4').innerHTML = `<span class="${vt>0.05?'green':vt<-0.05?'red':'yellow'}">${vt>0?'+':''}${(vt*100).toFixed(1)}% (${vt>0.05?'가속':'vt<-0.05?'감속':'유지'})</span>`;
+  document.getElementById('d5').innerHTML = reachBars !== null && reachBars > 0
+    ? `<span class="white">약 ${Math.ceil(reachBars)}봉 뒤 도달 예상</span>`
+    : `<span class="yellow">계산 불가 (역방향 또는 추세 없음)</span>`;
+
+  showToast('계산 완료!');
+}
+
+function loadSample() {
+  document.getElementById('i-price').value = 2610000;
+  document.getElementById('i-high').value  = 2635000;
+  document.getElementById('i-low').value   = 2618000;
+
+  const sample = [
+    { close: 2580000, vol: 65000 },
+    { close: 2591000, vol: 72000 },
+    { close: 2598000, vol: 89000 },
+    { close: 2602000, vol: 91000 },
+    { close: 2610000, vol: 95000 },
+  ];
+  sample.forEach((s, i) => {
+    document.getElementById('c-close-'+(i+1)).value = s.close;
+    document.getElementById('c-vol-'+(i+1)).value   = s.vol;
+  });
+  previewSlope();
+  showToast('샘플 데이터 로드됨');
+}
+
+function reset() {
+  document.getElementById('i-price').value = '';
+  document.getElementById('i-high').value  = '';
+  document.getElementById('i-low').value   = '';
+  for (let i = 1; i <= 5; i++) {
+    document.getElementById('c-close-'+i).value = '';
+    document.getElementById('c-vol-'+i).value   = '';
+  }
+  document.getElementById('slope-preview').style.display = 'none';
+  document.getElementById('cards').style.display         = 'none';
+  document.getElementById('detail').style.display        = 'none';
+  document.getElementById('result-box').className        = 'result-box neutral';
+  document.getElementById('res-emoji').textContent       = '⏳';
+  document.getElementById('res-main').textContent        = '데이터 입력 후 계산';
+  document.getElementById('res-sub').textContent         = '최근 5봉 + 목표 캔들 입력';
+  const badge = document.getElementById('pos-badge');
+  badge.style.background = '#1a1500'; badge.style.borderColor = '#f59e0b';
+  badge.style.color = '#f59e0b'; badge.textContent = '위치 확인 중';
+}
+
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type} show`;
+  setTimeout(() => t.className = 'toast', 2200);
+}
+
+buildTable();
+</script>
+</body>
+</html>
