@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="후행스팬">
+<title>후행스팬 신호</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; background: #0a0e1a; color: #e2e8f0; padding: 16px; min-height: 100vh; max-width: 480px; margin: 0 auto; }
+.header { text-align: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #1e2d4a; }
+.header h1 { font-size: 16px; font-weight: 700; color: #fff; }
+.header p { font-size: 11px; color: #4a6fa5; margin-top: 2px; }
+
+/* 봉 종류 선택 */
+.seg-wrap { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; background: #0f1829; border-radius: 12px; padding: 4px; margin-bottom: 14px; border: 1px solid #1e2d4a; }
+.seg-btn { padding: 10px 0; border: none; border-radius: 9px; font-size: 14px; font-weight: 600; cursor: pointer; background: transparent; color: #4a6fa5; transition: all 0.2s; }
+.seg-btn:active { opacity: 0.7; }
+.seg-btn.active { background: #1d4ed8; color: #fff; box-shadow: 0 2px 8px rgba(29,78,216,0.4); }
+.seg-btn.active.min-type  { background: #0d9488; box-shadow: 0 2px 8px rgba(13,148,136,0.4); }
+.seg-btn.active.tick-type { background: #7c3aed; box-shadow: 0 2px 8px rgba(124,58,237,0.4); }
+
+/* 신호박스 */
+.signal-box { border-radius: 14px; padding: 20px 16px; margin-bottom: 14px; text-align: center; background: #0f1829; border: 1px solid #1e2d4a; transition: all 0.3s; }
+.sig-emoji { font-size: 44px; margin-bottom: 8px; }
+.sig-text { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+.sig-sub { font-size: 12px; opacity: 0.7; }
+.signal-box.strong-up   { border: 2px solid #10b981; background: #052e16; }
+.signal-box.weak-up     { border: 1px solid #10b981; background: #0a2d1a; }
+.signal-box.strong-down { border: 2px solid #ef4444; background: #2d0a0a; }
+.signal-box.weak-down   { border: 1px solid #ef4444; background: #1a0a0a; }
+.signal-box.neutral     { border: 1px solid #f59e0b; background: #1a1500; }
+
+/* 결과 3칸 */
+.r3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.rc { background: #0f1829; border-radius: 10px; padding: 12px 6px; text-align: center; border: 1px solid #1e2d4a; }
+.rv { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+.rl { font-size: 10px; color: #4a6fa5; }
+
+/* 입력 */
+.panel { background: #0f1829; border-radius: 14px; padding: 16px; margin-bottom: 12px; border: 1px solid #1e2d4a; }
+.panel-title { font-size: 10px; font-weight: 700; color: #4a6fa5; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 14px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.row2:last-child { margin-bottom: 0; }
+.ig { display: flex; flex-direction: column; gap: 6px; }
+.ig label { font-size: 11px; color: #94a3b8; }
+.ig input { background: #0a0e1a; border: 1px solid #1e2d4a; border-radius: 10px; padding: 12px 10px; color: #e2e8f0; font-size: 16px; outline: none; width: 100%; transition: border-color 0.2s; }
+.ig input:focus { border-color: #3b82f6; }
+.ig input::placeholder { color: #2d4a6e; font-size: 13px; }
+
+/* 봉 종류 기준 안내 */
+.thr-info { border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; background: #0a0e1a; border: 1px solid #1e2d4a; }
+.thr-title { font-size: 11px; font-weight: 700; color: #4a6fa5; margin-bottom: 6px; }
+.thr-row { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px; }
+.thr-row:last-child { margin-bottom: 0; }
+.thr-l { color: #64748b; }
+.thr-v { color: #94a3b8; font-weight: 600; }
+
+/* 후행스팬 위치 표시 */
+.lag-status { border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; display: none; }
+.lag-status.above  { background: #0a2d1a; border: 1px solid #10b981; }
+.lag-status.inside { background: #2d0a0a; border: 1px solid #ef4444; }
+.lag-status.below  { background: #1a1500; border: 1px solid #f59e0b; }
+.lag-title { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+.lag-desc  { font-size: 11px; opacity: 0.8; }
+
+/* 버튼 */
+.btn-calc { width: 100%; padding: 15px; background: #1d4ed8; border: none; border-radius: 12px; color: #fff; font-size: 17px; font-weight: 700; cursor: pointer; margin-bottom: 8px; transition: background 0.2s; }
+.btn-calc:active { opacity: 0.8; }
+.btn-reset { width: 100%; padding: 11px; background: none; border: 1px solid #1e2d4a; border-radius: 12px; color: #4a6fa5; font-size: 13px; cursor: pointer; margin-bottom: 14px; }
+
+/* 상세 */
+.detail { background: #0f1829; border-radius: 12px; padding: 14px; border: 1px solid #1e2d4a; margin-bottom: 12px; display: none; }
+.det-title { font-size: 10px; font-weight: 700; color: #4a6fa5; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+.drow { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: .5px solid #1e2d4a; align-items: flex-start; gap: 8px; }
+.drow:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.dl { color: #94a3b8; flex-shrink: 0; }
+.dv { font-weight: 600; text-align: right; }
+.green  { color: #10b981; }
+.red    { color: #ef4444; }
+.yellow { color: #f59e0b; }
+.white  { color: #fff; }
+
+/* 이력 */
+.hist-wrap { background: #0f1829; border-radius: 12px; padding: 14px; border: 1px solid #1e2d4a; }
+.hist-hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.hist-title { font-size: 10px; font-weight: 700; color: #4a6fa5; text-transform: uppercase; letter-spacing: 0.08em; }
+.btn-clr { font-size: 11px; color: #4a6fa5; background: none; border: none; cursor: pointer; }
+.h-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
+.hi { background: #0a0e1a; border-radius: 8px; padding: 10px 12px; border-left: 3px solid #1e2d4a; }
+.hi.up      { border-left-color: #10b981; }
+.hi.down    { border-left-color: #ef4444; }
+.hi.neutral { border-left-color: #f59e0b; }
+.hi-time { font-size: 10px; color: #4a6fa5; margin-bottom: 2px; }
+.hi-desc { font-size: 12px; }
+.hi-sub  { font-size: 11px; color: #64748b; margin-top: 2px; }
+.empty { text-align: center; padding: 20px; color: #2d4a6e; font-size: 12px; }
+
+.type-tag { display: inline-block; font-size: 9px; font-weight: 700; border-radius: 4px; padding: 1px 5px; margin-left: 4px; vertical-align: middle; }
+.tag-day  { background: #1e3a8a; color: #93c5fd; }
+.tag-min  { background: #134e4a; color: #5eead4; }
+.tag-tick { background: #2e1065; color: #c4b5fd; }
+
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1e3a5f; border: 1px solid #3b82f6; border-radius: 10px; padding: 10px 18px; font-size: 13px; font-weight: 600; color: #60a5fa; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; white-space: nowrap; }
+.toast.show { opacity: 1; }
+.toast.warn { background: #431407; border-color: #f59e0b; color: #f59e0b; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>후행스팬 신호 계산기</h1>
+  <p>봉 종류 선택 → MTS 값 입력 → 복합 신호 즉시 계산</p>
+</div>
+
+<!-- 봉 종류 선택 -->
+<div class="seg-wrap">
+  <button class="seg-btn active" id="seg-day"  onclick="setType('day')">📅 일봉</button>
+  <button class="seg-btn"        id="seg-min"  onclick="setType('min')">⏱ 분봉</button>
+  <button class="seg-btn"        id="seg-tick" onclick="setType('tick')">⚡ 틱봉</button>
+</div>
+
+<!-- 신호 -->
+<div class="signal-box neutral" id="signal-box">
+  <div class="sig-emoji" id="sig-emoji">📊</div>
+  <div class="sig-text" id="sig-text">값을 입력하세요</div>
+  <div class="sig-sub" id="sig-sub">현재가 · 선행스팬1 · 26봉전 고저가</div>
+</div>
+
+<!-- 결과 3칸 -->
+<div class="r3" id="r3" style="display:none">
+  <div class="rc"><div class="rv" id="rv1">-</div><div class="rl">저항거리</div></div>
+  <div class="rc"><div class="rv" id="rv2">-</div><div class="rl">후행위치</div></div>
+  <div class="rc"><div class="rv" id="rv3">-</div><div class="rl">총점</div></div>
+</div>
+
+<!-- 입력 -->
+<div class="panel">
+  <div class="panel-title" id="panel-title">일봉 | 현재봉 팝업에서 입력 (후행스팬 = 현재가)</div>
+  <div class="row2">
+    <div class="ig">
+      <label>현재가 (종가)</label>
+      <input type="number" id="i-price" placeholder="2602000" inputmode="numeric" oninput="onInput()">
+    </div>
+    <div class="ig">
+      <label>선행스팬1</label>
+      <input type="number" id="i-span1" placeholder="2625500" inputmode="numeric" oninput="onInput()">
+    </div>
+  </div>
+  <div class="row2">
+    <div class="ig">
+      <label>후행스팬 저항고가 ⬆</label>
+      <input type="number" id="i-high" placeholder="2630000" inputmode="numeric" oninput="onInput()">
+    </div>
+    <div class="ig">
+      <label>후행스팬 지지저가 ⬇</label>
+      <input type="number" id="i-low" placeholder="2606000" inputmode="numeric" oninput="onInput()">
+    </div>
+  </div>
+  <div class="row2">
+    <div class="ig">
+      <label>거래대금 (K단위)</label>
+      <input type="number" id="i-vol" placeholder="89815" inputmode="numeric" oninput="onInput()">
+    </div>
+    <div class="ig">
+      <label>봉 시간 (선택)</label>
+      <input type="text" id="i-time" placeholder="10:51:27" maxlength="8">
+    </div>
+  </div>
+</div>
+
+<!-- 봉 종류별 기준 안내 -->
+<div class="thr-info">
+  <div class="thr-title" id="thr-title">📋 일봉 기준값</div>
+  <div class="thr-row"><span class="thr-l">저항거리 기준</span><span class="thr-v" id="thr-dist">10,000원 초과 → +1점</span></div>
+  <div class="thr-row"><span class="thr-l">거래대금 강함</span><span class="thr-v" id="thr-vol1">200,000K 초과 → +1점</span></div>
+  <div class="thr-row"><span class="thr-l">거래대금 보통</span><span class="thr-v" id="thr-vol2">50,000K 초과 → 0점, 이하 -1점</span></div>
+</div>
+
+<!-- 후행스팬 위치 실시간 표시 -->
+<div class="lag-status" id="lag-status">
+  <div class="lag-title" id="lag-title">-</div>
+  <div class="lag-desc" id="lag-desc">-</div>
+</div>
+
+<button class="btn-calc" id="btn-calc" onclick="calc()">신호 계산</button>
+<button class="btn-reset" onclick="reset()">초기화</button>
+
+<!-- 상세 -->
+<div class="detail" id="detail">
+  <div class="det-title">공식 상세</div>
+  <div class="drow"><span class="dl">저항거리 (저가 기준)</span><span class="dv" id="d1">-</span></div>
+  <div class="drow"><span class="dl">후행스팬 위치</span><span class="dv" id="d2">-</span></div>
+  <div class="drow"><span class="dl">선행스팬1 vs 현재가</span><span class="dv" id="d3">-</span></div>
+  <div class="drow"><span class="dl">거래강도</span><span class="dv" id="d4">-</span></div>
+  <div class="drow"><span class="dl">총점</span><span class="dv white" id="d5">-</span></div>
+</div>
+
+<!-- 이력 -->
+<div class="hist-wrap">
+  <div class="hist-hd">
+    <span class="hist-title">계산 이력</span>
+    <button class="btn-clr" onclick="clearHist()">삭제</button>
+  </div>
+  <div class="h-list" id="h-list"><div class="empty">아직 이력 없음</div></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let candleType = 'day';
+let hist = JSON.parse(localStorage.getItem('ls_v4') || '[]');
+
+const CFG = {
+  day: {
+    panelLabel: '일봉 | 현재봉 팝업에서 입력 (후행스팬 = 현재가)',
+    thrTitle:   '📋 일봉 기준값',
+    distThr:    10000,
+    vol:        [500000, 200000, 50000],
+    volPH:      '89815',
+    btnColor:   '#1d4ed8',
+    tagClass:   'tag-day',
+    label:      '일봉',
+  },
+  min: {
+    panelLabel: '분봉 | 현재봉 팝업에서 입력 (후행스팬 = 현재가)',
+    thrTitle:   '📋 분봉 기준값',
+    distThr:    2000,
+    vol:        [50000, 20000, 5000],
+    volPH:      '5230',
+    btnColor:   '#0d9488',
+    tagClass:   'tag-min',
+    label:      '분봉',
+  },
+  tick: {
+    panelLabel: '틱봉 | 현재봉 팝업에서 입력 (후행스팬 = 현재가)',
+    thrTitle:   '📋 틱봉 기준값',
+    distThr:    500,
+    vol:        [10000, 3000, 500],
+    volPH:      '820',
+    btnColor:   '#7c3aed',
+    tagClass:   'tag-tick',
+    label:      '틱봉',
+  }
+};
+
+function setType(type) {
+  candleType = type;
+  const cfg = CFG[type];
+
+  document.getElementById('seg-day').className  = 'seg-btn' + (type==='day'  ? ' active' : '');
+  document.getElementById('seg-min').className  = 'seg-btn' + (type==='min'  ? ' active min-type' : '');
+  document.getElementById('seg-tick').className = 'seg-btn' + (type==='tick' ? ' active tick-type' : '');
+
+  document.getElementById('btn-calc').style.background = cfg.btnColor;
+  document.getElementById('panel-title').textContent   = cfg.panelLabel;
+  document.getElementById('i-vol').placeholder         = cfg.volPH;
+
+  document.getElementById('thr-title').textContent = cfg.thrTitle;
+  document.getElementById('thr-dist').textContent  = cfg.distThr.toLocaleString() + '원 초과 → +1점';
+  document.getElementById('thr-vol1').textContent  = cfg.vol[1].toLocaleString() + 'K 초과 → +1점';
+  document.getElementById('thr-vol2').textContent  = cfg.vol[2].toLocaleString() + 'K 초과 → 0점, 이하 -1점';
+
+  onInput();
+}
+
+function onInput() {
+  const price = parseFloat(document.getElementById('i-price').value);
+  const high  = parseFloat(document.getElementById('i-high').value);
+  const low   = parseFloat(document.getElementById('i-low').value);
+  const el    = document.getElementById('lag-status');
+
+  if (!price || !high || !low) { el.style.display = 'none'; return; }
+
+  el.style.display = 'block';
+  if (price > high) {
+    el.className = 'lag-status above';
+    document.getElementById('lag-title').textContent = '✅ 후행스팬: 캔들 위 (저항 돌파)';
+    document.getElementById('lag-desc').textContent  = '상승에 유리한 위치';
+  } else if (price >= low) {
+    el.className = 'lag-status inside';
+    document.getElementById('lag-title').textContent = '⛔ 후행스팬: 캔들 안 (저항 걸림)';
+    document.getElementById('lag-desc').textContent  = '하락 압력 구간';
+  } else {
+    el.className = 'lag-status below';
+    document.getElementById('lag-title').textContent = '⚠️ 후행스팬: 캔들 아래 (자유낙하)';
+    document.getElementById('lag-desc').textContent  = '추가 하락 가능';
+  }
+}
+
+function calc() {
+  const price = parseFloat(document.getElementById('i-price').value);
+  const span1 = parseFloat(document.getElementById('i-span1').value) || 0;
+  const high  = parseFloat(document.getElementById('i-high').value);
+  const low   = parseFloat(document.getElementById('i-low').value);
+  const vol   = parseFloat(document.getElementById('i-vol').value) || 0;
+  const time  = document.getElementById('i-time').value || '--:--';
+
+  if (!price || !high || !low) { showToast('현재가, 후행스팬 저항고가/저가 필수', 'warn'); return; }
+
+  const cfg = CFG[candleType];
+
+  const distL     = price - low;
+  const distScore = distL > cfg.distThr ? 1 : distL > 0 ? 0 : -1;
+
+  let lagPos, lagText;
+  if (price > high)      { lagPos = 1;  lagText = '✅ 캔들 위 (+1)'; }
+  else if (price >= low) { lagPos = -1; lagText = '⛔ 캔들 안 (-1)'; }
+  else                   { lagPos = -2; lagText = '⚠️ 캔들 아래 (-2)'; }
+
+  let sp1Score = 0, sp1Text = '데이터 없음';
+  if (span1 > 0) {
+    if (price > span1)      { sp1Score = 1;  sp1Text = '▲ 현재가 > 선행스팬1 (+1)'; }
+    else if (price < span1) { sp1Score = -1; sp1Text = '▼ 현재가 < 선행스팬1 (-1)'; }
+    else                     { sp1Score = 0;  sp1Text = '→ 동일 (0)'; }
+  }
+
+  let volScore = 0, volText = '데이터 없음';
+  if (vol > 0) {
+    if (vol > cfg.vol[0])      { volScore = 2;  volText = '🔥 매우 강함 (+2)'; }
+    else if (vol > cfg.vol[1]) { volScore = 1;  volText = '💪 강함 (+1)'; }
+    else if (vol > cfg.vol[2]) { volScore = 0;  volText = '➡️ 보통 (0)'; }
+    else                       { volScore = -1; volText = '😴 약함 (-1)'; }
+  }
+
+  const score = distScore + lagPos + sp1Score + volScore;
+
+  const sig = score >= 3  ? {cls:'strong-up',   e:'🚀', t:'강한 상승',  s:'모든 지표 상승 일치'} :
+              score >= 1  ? {cls:'weak-up',     e:'📈', t:'약한 상승',  s:'상승 우세'} :
+              score === 0 ? {cls:'neutral',     e:'➡️', t:'중립 관망',   s:'방향 불명확'} :
+              score >= -2 ? {cls:'weak-down',   e:'📉', t:'약한 하락',  s:'하락 우세'} :
+                            {cls:'strong-down', e:'💥', t:'강한 하락',  s:'모든 지표 하락 일치'};
+
+  const sb = document.getElementById('signal-box');
+  sb.className = 'signal-box ' + sig.cls;
+  document.getElementById('sig-emoji').textContent = sig.e;
+  document.getElementById('sig-text').textContent  = sig.t;
+  document.getElementById('sig-sub').textContent   = sig.s + ' [' + cfg.label + ']';
+
+  document.getElementById('r3').style.display = 'grid';
+  const d1e = document.getElementById('rv1');
+  d1e.textContent = (distL > 0 ? '+' : '') + (distL >= 1000 ? (distL/1000).toFixed(1)+'k' : distL+'원');
+  d1e.className = 'rv ' + (distScore > 0 ? 'green' : distL > 0 ? 'yellow' : 'red');
+  const d2e = document.getElementById('rv2');
+  d2e.textContent = lagPos === 1 ? '위' : lagPos === -1 ? '안' : '아래';
+  d2e.className = 'rv ' + (lagPos > 0 ? 'green' : lagPos === -1 ? 'yellow' : 'red');
+  const d3e = document.getElementById('rv3');
+  d3e.textContent = (score > 0 ? '+' : '') + score + '점';
+  d3e.className = 'rv ' + (score > 0 ? 'green' : score < 0 ? 'red' : 'yellow');
+
+  document.getElementById('detail').style.display = 'block';
+  document.getElementById('d1').innerHTML =
+    `<span class="${distScore>0?'green':distScore<0?'red':'yellow'}">${distL>0?'+':''}${distL.toLocaleString()}원 (${distScore>0?'+':''}${distScore}점)</span>`
+    + `<span style="color:#4a6fa5;font-size:11px;margin-left:4px">기준 ${cfg.distThr.toLocaleString()}원</span>`;
+  document.getElementById('d2').innerHTML =
+    `<span class="${lagPos>0?'green':lagPos===-1?'yellow':'red'}">${lagText}</span>`;
+  document.getElementById('d3').innerHTML =
+    `<span class="${sp1Score>0?'green':sp1Score<0?'red':'yellow'}">${sp1Text}</span>`;
+  document.getElementById('d4').innerHTML =
+    `<span class="${volScore>=1?'green':volScore<0?'red':'yellow'}">${volText}</span>`
+    + `<span style="color:#4a6fa5;font-size:11px;margin-left:4px">기준 ${cfg.vol[1].toLocaleString()}K</span>`;
+  document.getElementById('d5').textContent = `${score>0?'+':''}${score}점 → ${sig.t} [${cfg.label}]`;
+
+  hist.unshift({ time, price, score, sigText: sig.t, distL, lagText, dir: score>0?'up':score<0?'down':'neutral', type: cfg.label, tagClass: cfg.tagClass });
+  if (hist.length > 30) hist.pop();
+  localStorage.setItem('ls_v4', JSON.stringify(hist));
+  renderHist();
+  showToast('계산 완료!');
+}
+
+function renderHist() {
+  const list = document.getElementById('h-list');
+  if (!hist.length) { list.innerHTML = '<div class="empty">아직 이력 없음</div>'; return; }
+  list.innerHTML = hist.map(r => `
+    <div class="hi ${r.dir}">
+      <div class="hi-time">${r.time} · ${r.score>0?'+':''}${r.score}점 <span class="type-tag ${r.tagClass||'tag-day'}">${r.type||'일봉'}</span></div>
+      <div class="hi-desc">${r.price?.toLocaleString()}원 → ${r.sigText}</div>
+      <div class="hi-sub">저항거리 ${r.distL>0?'+':''}${r.distL?.toLocaleString()} · ${r.lagText}</div>
+    </div>`).join('');
+}
+
+function reset() {
+  ['i-price','i-span1','i-high','i-low','i-vol','i-time'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('signal-box').className     = 'signal-box neutral';
+  document.getElementById('sig-emoji').textContent    = '📊';
+  document.getElementById('sig-text').textContent     = '값을 입력하세요';
+  document.getElementById('sig-sub').textContent      = '현재가 · 선행스팬1 · 26봉전 고저가';
+  document.getElementById('r3').style.display         = 'none';
+  document.getElementById('detail').style.display     = 'none';
+  document.getElementById('lag-status').style.display = 'none';
+}
+
+function clearHist() {
+  hist = []; localStorage.setItem('ls_v4', JSON.stringify(hist)); renderHist();
+}
+
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type} show`;
+  setTimeout(() => t.className = 'toast', 2200);
+}
+
+setType('day');
+renderHist();
+</script>
+</body>
+</html>
